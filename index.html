@@ -45,7 +45,8 @@
   color-scheme:dark}
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,a,label,input,select,textarea{touch-action:manipulation}
 html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--f-body);font-size:15px;line-height:1.4;padding-inline:16px;padding-block:0 calc(84px + env(safe-area-inset-bottom,0px))}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -533,7 +534,7 @@ function renderSet(){
     <label class="btn sec" for="im">Importă fișier<input id="im" type="file" accept=".json,application/json" hidden></label>
     <details><summary class="hint">Importă prin lipire de text</summary><div class="form" style="margin-top:10px"><textarea id="pj" rows="4" class="field" style="width:100%;background:var(--surface-2);border:0;border-radius:11px;padding:10px" placeholder="Lipește JSON-ul aici"></textarea><button class="btn sec" id="pjb">Importă textul</button></div></details></div>
   <div class="sectlab">Zona periculoasă</div><div class="card form"><button class="btn danger" id="wipe">Șterge toate datele</button></div>
-  <p class="hint" style="text-align:center;margin:18px 0">${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
+  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v4 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
   const g=id=>$(id);
   const th=()=>{const c=4*num(g("#tp").value)+4*num(g("#tc").value)+9*num(g("#tf").value);g("#th").textContent=c?`Macro-urile adună ${fk(c)} kcal.`:""};
   ["#tp","#tc","#tf"].forEach(i=>g(i).oninput=th);th();
@@ -561,6 +562,8 @@ load();go("day");
 /* block pinch zoom and double-tap zoom (iOS ignores user-scalable=no) */
 ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
 document.addEventListener("touchmove",e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
+document.addEventListener("touchstart",e=>{if(e.touches.length>1)e.preventDefault()},{passive:false});
+let lastT=0;document.addEventListener("touchend",e=>{const n=Date.now();if(n-lastT<=350&&!e.target.closest("input,textarea,select,button,label,a"))e.preventDefault();lastT=n},{passive:false});
 </script>
-<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{});</script>
 </body></html>
