@@ -207,7 +207,7 @@ button:active{transform:scale(.97)}
 @keyframes itemIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @keyframes flash{0%{background:color-mix(in srgb,var(--prot) 14%,transparent)}100%{background:transparent}}
 .item.fresh{animation:itemIn .3s ease both,flash 1.4s ease .1s both}
-.sbody.swap{animation:sheetSwap .22s cubic-bezier(.2,.8,.2,1) both}
+.sbody.swap{animation:sheetSwap .34s cubic-bezier(.2,.8,.2,1) both}
 @keyframes sheetSwap{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
 .sbody.swap.back{animation-name:sheetBack}
 @keyframes sheetBack{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
@@ -309,8 +309,8 @@ function transition(fn,from){
   if(navBusy){navBusy.cancel&&navBusy.cancel()}
   const out={tab:[{opacity:1,transform:"none"},{opacity:0,transform:"translateY(4px)"}],left:[{opacity:1,transform:"none"},{opacity:0,transform:"translateX(18px)"}],right:[{opacity:1,transform:"none"},{opacity:0,transform:"translateX(-18px)"}]}[from];
   const inn={tab:[{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],left:[{opacity:0,transform:"translateX(-26px)"},{opacity:1,transform:"none"}],right:[{opacity:0,transform:"translateX(26px)"},{opacity:1,transform:"none"}]}[from];
-  const a=el.animate(out,{duration:90,easing:"ease-in",fill:"forwards"});navBusy=a;
-  a.onfinish=()=>{fn();a.cancel();navBusy=null;el.animate(inn,{duration:240,easing:"cubic-bezier(.2,.8,.2,1)"})};
+  const a=el.animate(out,{duration:140,easing:"ease-in",fill:"forwards"});navBusy=a;
+  a.onfinish=()=>{fn();a.cancel();navBusy=null;el.animate(inn,{duration:400,easing:"cubic-bezier(.2,.8,.2,1)"})};
   a.oncancel=()=>{if(navBusy===a){navBusy=null}};
 }
 function go(t,anim){const same=t===tab;tab=t;document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===t?"page":"false"));
@@ -510,7 +510,7 @@ function renderFoods(){
     <div class="list" id="res"></div>
     ${S.templates.length?`<div class="sectlab">Mese tipice</div><div class="list" id="tpls"></div>`:""}`;
   $("#fabwrap").innerHTML=`<button class="fab" id="fab" aria-label="Aliment nou">${ICON.plus}</button>`;
-  if(!RM()&&$("#fab").animate)$("#fab").animate([{opacity:0,transform:"scale(.85)"},{opacity:1,transform:"none"}],{duration:220,delay:120,easing:"cubic-bezier(.2,.8,.2,1)",fill:"backwards"});
+  if(!RM()&&$("#fab").animate)$("#fab").animate([{opacity:0,transform:"scale(.85)"},{opacity:1,transform:"none"}],{duration:320,delay:200,easing:"cubic-bezier(.2,.8,.2,1)",fill:"backwards"});
   const draw=()=>{const L=sortedFoods(foodQ).sort((a,b)=>a.name.localeCompare(b.name,"ro"));
     $("#res").innerHTML=foodRows(L,S.foods.length?"Nimic găsit.":"<b>Lista e goală</b>Apasă + și copiază valorile de pe etichetă, la 100g.");
     $("#res").querySelectorAll("[data-fid]").forEach(r=>r.onclick=()=>foodForm(S.foods.find(f=>f.id===r.dataset.fid)))};
@@ -571,7 +571,7 @@ function renderSet(){
     <label class="btn sec" for="im">Importă fișier<input id="im" type="file" accept=".json,application/json" hidden></label>
     <details><summary class="hint">Importă prin lipire de text</summary><div class="form" style="margin-top:10px"><textarea id="pj" rows="4" class="field" style="width:100%;background:var(--surface-2);border:0;border-radius:11px;padding:10px" placeholder="Lipește JSON-ul aici"></textarea><button class="btn sec" id="pjb">Importă textul</button></div></details></div>
   <div class="sectlab">Zona periculoasă</div><div class="card form"><button class="btn danger" id="wipe">Șterge toate datele</button></div>
-  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v6 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
+  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v7 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
   const g=id=>$(id);
   const th=()=>{const c=4*num(g("#tp").value)+4*num(g("#tc").value)+9*num(g("#tf").value);g("#th").textContent=c?`Macro-urile adună ${fk(c)} kcal.`:""};
   ["#tp","#tc","#tf"].forEach(i=>g(i).oninput=th);th();
