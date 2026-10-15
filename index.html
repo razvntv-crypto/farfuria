@@ -194,8 +194,10 @@ textarea{resize:vertical}
 .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 .chip{padding:8px 12px;border-radius:999px;border:1px solid var(--line);font-size:13.5px;font-weight:600;color:var(--ink-2)}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:.2s;z-index:30;pointer-events:none;max-width:calc(100% - 32px)}
+.toast{display:flex;align-items:center;gap:14px;position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:.2s;z-index:30;pointer-events:none;max-width:calc(100% - 32px)}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+.toast.act{pointer-events:auto}
+.toast button{color:var(--bg);font-weight:800;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
 /* motion */
 .kbar i,.mc .bar i{transition:width .55s cubic-bezier(.2,.8,.2,1)}
 .split i{transition:width .45s cubic-bezier(.2,.8,.2,1)}
@@ -251,21 +253,34 @@ const ICON={
 /* ---------- storage ---------- */
 function defaults(){return{v:1,foods:[],days:{},templates:[],settings:{targets:{k:2600,p:180,c:290,f:80,fb:30},meals:["Mic dejun","Prânz","Gustare","Cină"]},demo:false}}
 let S;
+const UNDO=KEY+".undo",AUTO=KEY+".auto";
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v);return true}catch(e){return false}}
 function load(){
-  try{const raw=localStorage.getItem(KEY);if(raw){S=Object.assign(defaults(),JSON.parse(raw));S.settings.targets=Object.assign(defaults().settings.targets,S.settings.targets||{});return}}catch(e){}
+  const raw=lsGet(KEY);
+  if(raw){try{S=Object.assign(defaults(),JSON.parse(raw));S.settings.targets=Object.assign(defaults().settings.targets,S.settings.targets||{});autoCopy();return}
+    catch(e){lsSet(KEY+".broken."+Date.now(),raw)}}   // never overwrite unreadable data silently
   S=defaults();seedDemo();
 }
+/* one-step undo: a copy of everything taken right before a destructive action */
+function snapshot(label){lsSet(UNDO,JSON.stringify({t:Date.now(),label,data:S}))}
+function getUndo(){try{return JSON.parse(lsGet(UNDO))}catch(e){return null}}
+function undo(){const u=getUndo();if(!u)return;S=Object.assign(defaults(),u.data);save();try{localStorage.removeItem(UNDO)}catch(e){}render();toast("Am anulat: "+u.label)}
+/* automatic daily copies, last 3 days, taken the first time the app opens each day */
+function getAuto(){try{return JSON.parse(lsGet(AUTO))||[]}catch(e){return[]}}
+function autoCopy(){if(S.demo)return;const today=iso(new Date());const list=getAuto();if(list[0]&&list[0].d===today)return;
+  list.unshift({d:today,t:Date.now(),data:S});lsSet(AUTO,JSON.stringify(list.slice(0,3)))}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast("Nu am putut salva local")}}
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 
 function seedDemo(){
-  const F=(name,k,p,c,f,fb,portion)=>({id:uid(),name,unit:"g",k,p,c,f,fb,portion:portion||null,used:0,lastG:null});
+  const F=(name,k,p,c,f,fb,portion)=>({id:uid(),name,unit:"g",k,p,c,f,fb,portion:portion||null,used:0,lastG:null,demo:true});
   const ovaz=F("Fulgi de ovăz",372,13.5,58.7,7,10),lapte=F("Lapte 1.5%",46,3.3,4.8,1.5,0),whey=F("Whey vanilie",390,76,8,6,0,{label:"1 scoop",g:30}),
     banana=F("Banană",89,1.1,22.8,.3,2.6,{label:"1 buc",g:120}),orez=F("Orez basmati fiert",130,2.7,28.2,.3,.4),piept=F("Piept de pui crud",110,23,0,1.6,0),
     ulei=F("Ulei de măsline",884,0,0,100,0,{label:"1 lingură",g:10}),skyr=F("Skyr natur",63,11,4,.2,0,{label:"1 cutie",g:140}),
     oua=F("Ouă",143,12.6,.7,9.5,0,{label:"1 ou",g:55}),paine=F("Pâine integrală",247,9.7,41,3.4,7,{label:"1 felie",g:35});
   S.foods=[ovaz,lapte,whey,banana,orez,piept,ulei,skyr,oua,paine];
-  const it=(fd,g)=>({id:uid(),fid:fd.id,name:fd.name,g,k:fd.k,p:fd.p,c:fd.c,f:fd.f,fb:fd.fb});
+  const it=(fd,g)=>({id:uid(),fid:fd.id,name:fd.name,g,k:fd.k,p:fd.p,c:fd.c,f:fd.f,fb:fd.fb,demo:true});
   const today=iso(new Date());
   S.days[today]={meals:[
     {id:uid(),name:"Mic dejun",items:[it(ovaz,80),it(lapte,250),it(whey,30),it(banana,120)]},
@@ -278,7 +293,7 @@ function seedDemo(){
       {id:uid(),name:"Prânz",items:[it(piept,200+v*20),it(orez,230+v*30),it(ulei,10)]},
       {id:uid(),name:"Gustare",items:[it(skyr,140),it(banana,120)]},
       {id:uid(),name:"Cină",items:[it(ovaz,60+v*10),it(lapte,250),it(whey,30)]}]}}
-  S.templates=[{id:uid(),name:"Ovăz cu whey",items:[it(ovaz,80),it(lapte,250),it(whey,30),it(banana,120)].map(({id,...x})=>x)}];
+  S.templates=[{id:uid(),demo:true,name:"Ovăz cu whey",items:[it(ovaz,80),it(lapte,250),it(whey,30),it(banana,120)].map(({id,...x})=>x)}];
   S.foods.forEach(f=>{f.used=Date.now()-Math.random()*1e6});
   S.demo=true;
 }
@@ -319,6 +334,15 @@ function go(t,anim){const same=t===tab;tab=t;document.querySelectorAll(".tab").f
 function goDay(d){if(d===cur)return;const dir=d>cur?"right":"left";clean(cur);transition(()=>{cur=d;renderDay()},dir)}
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>go(b.dataset.tab));
 
+/* removes only what seedDemo created; anything the user added stays */
+function clearDemo(){
+  const demoIds=new Set(S.foods.filter(f=>f.demo).map(f=>f.id));
+  S.foods=S.foods.filter(f=>!f.demo);
+  S.templates=S.templates.filter(t=>!t.demo);
+  Object.keys(S.days).forEach(d=>{const day=S.days[d];day.meals.forEach(m=>m.items=m.items.filter(i=>!i.demo));
+    if(!dayHasItems(day))delete S.days[d]});
+  S.demo=false;
+}
 function render(){if(tab!=="foods")$("#fabwrap").innerHTML="";({day:renderDay,foods:renderFoods,hist:renderHist,set:renderSet})[tab]()}
 
 /* ---------- DAY ---------- */
@@ -359,7 +383,7 @@ function renderDay(){
   $("#prev").onclick=()=>goDay(shift(cur,-1));
   $("#next").onclick=()=>goDay(shift(cur,1));
   $("#today").onclick=()=>goDay(iso(new Date()));
-  if($("#cleardemo"))$("#cleardemo").onclick=()=>{const t=S.settings;S=defaults();S.settings=t;save();renderDay();toast("Exemplele au fost șterse")};
+  if($("#cleardemo"))$("#cleardemo").onclick=()=>{snapshot("ștergerea exemplelor");clearDemo();save();autoCopy();renderDay();toast("Am șters doar exemplele","Anulează",undo)};
   $("#addmeal").onclick=()=>{const n=day.meals.length+1;day.meals.push({id:uid(),name:"Masa "+n,items:[]});save();renderDay();mealMenu(day.meals.length-1,true)};
   if($("#copyprev"))$("#copyprev").onclick=()=>{const p=S.days[shift(cur,-1)];S.days[cur]={meals:p.meals.map(m=>({id:uid(),name:m.name,items:m.items.map(i=>({...i,id:uid()}))}))};save();renderDay();toast("Am copiat ziua de ieri")};
   $("#app").querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{const mi=+b.dataset.mi;
@@ -450,7 +474,7 @@ function editItem(mi,ii){
     const gi=bindGrams(b,fd);
     b.querySelector("#sv").onclick=()=>{const gv=num(gi.value);if(gv<=0){toast("Scrie o cantitate");return}it.g=gv;const to=+b.querySelector("#mv").value;
       if(to!==mi){meal.items.splice(ii,1);day.meals[to].items.push(it)}save();closeSheet();renderDay()};
-    armed(b.querySelector("#del"),()=>{meal.items.splice(ii,1);save();closeSheet();renderDay()});
+    armed(b.querySelector("#del"),()=>{snapshot("ștergerea alimentului din masă");meal.items.splice(ii,1);save();closeSheet();renderDay();toast("Șters din masă","Anulează",undo)});
   });
 }
 function mealMenu(mi,focusName){
@@ -466,7 +490,7 @@ function mealMenu(mi,focusName){
     if(b.querySelector("#tpl"))b.querySelector("#tpl").onclick=()=>{S.templates.push({id:uid(),name:meal.name,items:meal.items.map(({id,...x})=>x)});save();closeSheet();toast(`„${meal.name}” e acum masă tipică`)};
     if(b.querySelector("#dup"))b.querySelector("#dup").onclick=()=>{const t=getDay(shift(cur,1));let tm=t.meals.find(m=>m.name===meal.name);
       if(!tm){tm={id:uid(),name:meal.name,items:[]};t.meals.push(tm)}tm.items.push(...meal.items.map(i=>({...i,id:uid()})));save();closeSheet();toast("Copiată pe mâine")};
-    armed(b.querySelector("#del"),()=>{day.meals.splice(mi,1);save();closeSheet();renderDay()});
+    armed(b.querySelector("#del"),()=>{snapshot("ștergerea mesei");day.meals.splice(mi,1);save();closeSheet();renderDay();toast("Masa a fost ștearsă","Anulează",undo)});
   });
 }
 
@@ -500,7 +524,7 @@ function foodForm(fd,prefill,after){
       let res;if(isNew){res={id:uid(),used:Date.now(),lastG:null,...o};S.foods.push(res)}else{Object.assign(fd,o);res=fd}
       save();toast(isNew?"Aliment salvat":"Modificări salvate");
       if(after)after(res);else{closeSheet();render()}};
-    if(!isNew)armed(g("#del"),()=>{S.foods=S.foods.filter(f=>f.id!==fd.id);save();closeSheet();render()});
+    if(!isNew)armed(g("#del"),()=>{snapshot("ștergerea alimentului");S.foods=S.foods.filter(f=>f.id!==fd.id);save();closeSheet();render();toast("Aliment șters","Anulează",undo)});
   });
 }
 
@@ -524,7 +548,7 @@ function tplSheet(t){const s=sumItems(t.items);
     <div class="list">${t.items.map(i=>`<div class="row"><span class="n"><b>${esc(i.name)}</b></span><span class="mono muted">${fm(i.g)}g</span><span class="k">${fk(itemM(i).k)}</span></div>`).join("")}</div>
     <div class="form" style="margin-top:14px"><div class="field"><label for="tn">Nume</label><input id="tn" value="${esc(t.name)}"></div><button class="btn" id="sv">Salvează numele</button><button class="btn danger" id="del">Șterge masa tipică</button></div>`,b=>{
     b.querySelector("#sv").onclick=()=>{const v=b.querySelector("#tn").value.trim();if(v){t.name=v;save();closeSheet();render()}};
-    armed(b.querySelector("#del"),()=>{S.templates=S.templates.filter(x=>x!==t);save();closeSheet();render()})});
+    armed(b.querySelector("#del"),()=>{snapshot("ștergerea mesei tipice");S.templates=S.templates.filter(x=>x!==t);save();closeSheet();render();toast("Masă tipică ștearsă","Anulează",undo)})});
 }
 
 /* ---------- HISTORY ---------- */
@@ -570,9 +594,19 @@ function renderSet(){
     <div class="btnrow"><button class="btn sec" id="ex">Exportă</button><button class="btn sec" id="cp">Copiază JSON</button></div>
     <label class="btn sec" for="im">Importă fișier<input id="im" type="file" accept=".json,application/json" hidden></label>
     <details><summary class="hint">Importă prin lipire de text</summary><div class="form" style="margin-top:10px"><textarea id="pj" rows="4" class="field" style="width:100%;background:var(--surface-2);border:0;border-radius:11px;padding:10px" placeholder="Lipește JSON-ul aici"></textarea><button class="btn sec" id="pjb">Importă textul</button></div></details></div>
+  <div class="sectlab">Recuperare</div>
+  <div class="card form" id="rec"></div>
   <div class="sectlab">Zona periculoasă</div><div class="card form"><button class="btn danger" id="wipe">Șterge toate datele</button></div>
-  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v8 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
+  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v9 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
   const g=id=>$(id);
+  const hm=t=>{const d=new Date(t);return niceDate(iso(d))+", "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")};
+  const cnt=o=>`${(o.foods||[]).length} alimente, ${Object.keys(o.days||{}).filter(d=>dayHasItems(o.days[d])).length} zile`;
+  const u=getUndo(),A=getAuto();
+  g("#rec").innerHTML=(u?`<button class="btn sec" id="undo">Anulează ${esc(u.label)}</button><p class="hint" style="margin:-4px 0 0">Copie făcută ${hm(u.t)} · ${cnt(u.data)}</p>`:"")
+    +`<p class="hint" style="margin:0">Aplicația își face singură o copie în fiecare zi, prima dată când o deschizi. Le păstrează pe ultimele 3.</p>`
+    +(A.length?A.map((a,i)=>`<button class="row" data-auto="${i}" style="border:1px solid var(--line);border-radius:11px"><span class="n"><b>Copia din ${esc(niceDate(a.d).toLowerCase())}, ${subDate(a.d)}</b><small>${cnt(a.data)}</small></span><span class="tp" style="font-weight:600;font-size:13.5px">Restaurează</span></button>`).join(""):`<p class="hint" style="margin:0">Încă nu există copii automate.</p>`);
+  if(g("#undo"))g("#undo").onclick=undo;
+  g("#rec").querySelectorAll("[data-auto]").forEach(b=>{const a=A[+b.dataset.auto];armed(b,()=>{snapshot("restaurarea copiei");S=Object.assign(defaults(),a.data);save();renderSet();toast("Am restaurat copia","Anulează",undo)})});
   const th=()=>{const c=4*num(g("#tp").value)+4*num(g("#tc").value)+9*num(g("#tf").value);g("#th").textContent=c?`Macro-urile adună ${fk(c)} kcal.`:""};
   ["#tp","#tc","#tf"].forEach(i=>g(i).oninput=th);th();
   g("#sv").onclick=()=>{S.settings.targets={k:num(g("#tk").value)||2000,p:num(g("#tp").value),c:num(g("#tc").value),f:num(g("#tf").value),fb:num(g("#tfb").value)};
@@ -582,13 +616,16 @@ function renderSet(){
     try{const file=new File([blob],fname,{type:"application/json"});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:fname});return}}catch(e){if(e&&e.name==="AbortError")return}
     try{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fname;document.body.append(a);a.click();a.remove();toast("Export pornit")}catch(e){toast("Exportul nu merge aici, folosește Copiază JSON")}};
   g("#cp").onclick=()=>{const t=json();navigator.clipboard.writeText(t).then(()=>toast("JSON copiat")).catch(()=>{g("#pj").closest("details").open=true;g("#pj").value=t;g("#pj").select();toast("Selectat, copiază manual")})};
-  const doImport=txt=>{try{const o=JSON.parse(txt);if(!o||!Array.isArray(o.foods)||typeof o.days!=="object")throw 0;S=Object.assign(defaults(),o);S.demo=false;save();toast("Import reușit");renderSet()}catch(e){toast("Fișierul nu e un backup valid")}};
+  const doImport=txt=>{try{const o=JSON.parse(txt);if(!o||!Array.isArray(o.foods)||typeof o.days!=="object")throw 0;snapshot("importul");S=Object.assign(defaults(),o);S.demo=false;save();renderSet();toast("Import reușit","Anulează",undo)}catch(e){toast("Fișierul nu e un backup valid")}};
   g("#im").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>doImport(r.result);r.readAsText(f)};
   g("#pjb").onclick=()=>doImport(g("#pj").value);
-  armed(g("#wipe"),()=>{S=defaults();save();toast("Toate datele au fost șterse");renderSet()});
+  armed(g("#wipe"),()=>{snapshot("ștergerea tuturor datelor");S=defaults();save();renderSet();toast("Toate datele au fost șterse","Anulează",undo)});
 }
 
-let tt;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),2000)}
+let tt;function toast(m,act,fn){const t=$("#toast");t.innerHTML="";const sp=document.createElement("span");sp.textContent=m;t.append(sp);
+  t.classList.toggle("act",!!act);
+  if(act){const b=document.createElement("button");b.textContent=act;b.onclick=()=>{t.classList.remove("on","act");fn()};t.append(b)}
+  t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on","act"),act?6000:2000)}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&tab==="day"){const t=iso(new Date());render()}});
 
 load();go("day");
