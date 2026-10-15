@@ -186,6 +186,7 @@ textarea{resize:vertical}
 .shead{display:flex;align-items:center;gap:8px;padding:6px 16px 10px}
 .shead h2{flex:1;margin:0;font-family:var(--f-num);font-stretch:88%;font-size:21px;font-weight:750;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sbody{overflow-y:auto;padding:0 16px 18px;-webkit-overflow-scrolling:touch}
+.seg.three{grid-template-columns:repeat(3,1fr)}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);border-radius:11px;padding:3px;margin:10px 0 4px}
 .seg button{padding:8px;border-radius:9px;font-weight:600;font-size:13.5px;color:var(--ink-2)}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
@@ -349,7 +350,15 @@ function clearDemo(){
     if(!dayHasItems(day))delete S.days[d]});
   S.demo=false;
 }
-function render(){if(tab!=="foods")$("#fabwrap").innerHTML="";({day:renderDay,foods:renderFoods,hist:renderHist,set:renderSet})[tab]()}
+/* theme: auto follows the phone, or force light / dark */
+function applyTheme(){const t=(S&&S.settings&&S.settings.theme)||"auto",root=document.documentElement;
+  if(t==="auto")root.removeAttribute("data-theme");else root.setAttribute("data-theme",t);
+  const metas=document.querySelectorAll('meta[name="theme-color"]');
+  metas.forEach(m=>{const media=m.getAttribute("data-media")||m.getAttribute("media");if(media)m.setAttribute("data-media",media);
+    const dark=/dark/.test(media||"");
+    if(t==="auto"){m.setAttribute("media",media);m.content=dark?"#0F1317":"#EEF1F3"}
+    else{m.removeAttribute("media");m.content=t==="dark"?"#0F1317":"#EEF1F3"}})}
+function render(){applyTheme();if(tab!=="foods")$("#fabwrap").innerHTML="";({day:renderDay,foods:renderFoods,hist:renderHist,set:renderSet})[tab]()}
 
 /* ---------- DAY ---------- */
 function pct(a,b){return b>0?Math.min(100,a/b*100):0}
@@ -585,7 +594,12 @@ function renderHist(){
 /* ---------- SETTINGS ---------- */
 function renderSet(){
   const G=S.settings.targets;
+  applyTheme();const TH=S.settings.theme||"auto";
   $("#app").innerHTML=`<h1 class="pg">Setări</h1>
+  <div class="card"><div class="sectlab" style="margin:0">Aspect</div>
+    <div class="seg three" role="group" aria-label="Temă">${[["auto","Automat"],["light","Luminos"],["dark","Întunecat"]].map(([k,l])=>`<button data-th="${k}" aria-pressed="${TH===k}">${l}</button>`).join("")}</div>
+    <p class="hint" style="margin:6px 2px 0">${TH==="auto"?"Urmează setarea telefonului.":"Rămâne așa indiferent de setarea telefonului."}</p></div>
+  <div class="sectlab"></div>
   <div class="card form"><div class="sectlab" style="margin:0">Ținte zilnice</div>
     <div class="grid2"><div class="field"><label for="tk">Calorii (kcal)</label><input id="tk" inputmode="numeric" value="${fk(G.k)}"></div>
       <div class="field"><label for="tp" class="tp">Proteine (g)</label><input id="tp" inputmode="numeric" value="${fk(G.p)}"></div>
@@ -603,7 +617,8 @@ function renderSet(){
   <div class="sectlab">Recuperare</div>
   <div class="card form" id="rec"></div>
   <div class="sectlab">Zona periculoasă</div><div class="card form"><button class="btn danger" id="wipe">Șterge toate datele</button></div>
-  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v10 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
+  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v11 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
+  $("#app").querySelectorAll("[data-th]").forEach(b=>b.onclick=()=>{S.settings.theme=b.dataset.th;save();renderSet()});
   const g=id=>$(id);
   const hm=t=>{const d=new Date(t);return niceDate(iso(d))+", "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")};
   const cnt=o=>`${(o.foods||[]).length} alimente, ${Object.keys(o.days||{}).filter(d=>dayHasItems(o.days[d])).length} zile`;
