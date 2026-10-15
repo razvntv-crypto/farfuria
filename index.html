@@ -217,6 +217,7 @@ button:active{transform:scale(.97)}
 
 
 <div class="wrap" id="app"></div>
+<div id="fabwrap"></div>
 <nav class="tabs" aria-label="Secțiuni"><div class="in">
   <button class="tab" data-tab="day"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/></svg>Ziua</button>
   <button class="tab" data-tab="foods"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/></svg>Alimente</button>
@@ -318,7 +319,7 @@ function go(t,anim){const same=t===tab;tab=t;document.querySelectorAll(".tab").f
 function goDay(d){if(d===cur)return;const dir=d>cur?"right":"left";clean(cur);transition(()=>{cur=d;renderDay()},dir)}
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>go(b.dataset.tab));
 
-function render(){({day:renderDay,foods:renderFoods,hist:renderHist,set:renderSet})[tab]()}
+function render(){if(tab!=="foods")$("#fabwrap").innerHTML="";({day:renderDay,foods:renderFoods,hist:renderHist,set:renderSet})[tab]()}
 
 /* ---------- DAY ---------- */
 function pct(a,b){return b>0?Math.min(100,a/b*100):0}
@@ -507,8 +508,9 @@ function foodForm(fd,prefill,after){
 function renderFoods(){
   $("#app").innerHTML=`<h1 class="pg">Alimente</h1><div class="search">${ICON.search}<input id="q" type="search" placeholder="Caută în alimentele tale" value="${esc(foodQ)}" autocomplete="off"></div>
     <div class="list" id="res"></div>
-    ${S.templates.length?`<div class="sectlab">Mese tipice</div><div class="list" id="tpls"></div>`:""}
-    <button class="fab" id="fab" aria-label="Aliment nou">${ICON.plus}</button>`;
+    ${S.templates.length?`<div class="sectlab">Mese tipice</div><div class="list" id="tpls"></div>`:""}`;
+  $("#fabwrap").innerHTML=`<button class="fab" id="fab" aria-label="Aliment nou">${ICON.plus}</button>`;
+  if(!RM()&&$("#fab").animate)$("#fab").animate([{opacity:0,transform:"scale(.85)"},{opacity:1,transform:"none"}],{duration:220,delay:120,easing:"cubic-bezier(.2,.8,.2,1)",fill:"backwards"});
   const draw=()=>{const L=sortedFoods(foodQ).sort((a,b)=>a.name.localeCompare(b.name,"ro"));
     $("#res").innerHTML=foodRows(L,S.foods.length?"Nimic găsit.":"<b>Lista e goală</b>Apasă + și copiază valorile de pe etichetă, la 100g.");
     $("#res").querySelectorAll("[data-fid]").forEach(r=>r.onclick=()=>foodForm(S.foods.find(f=>f.id===r.dataset.fid)))};
@@ -569,7 +571,7 @@ function renderSet(){
     <label class="btn sec" for="im">Importă fișier<input id="im" type="file" accept=".json,application/json" hidden></label>
     <details><summary class="hint">Importă prin lipire de text</summary><div class="form" style="margin-top:10px"><textarea id="pj" rows="4" class="field" style="width:100%;background:var(--surface-2);border:0;border-radius:11px;padding:10px" placeholder="Lipește JSON-ul aici"></textarea><button class="btn sec" id="pjb">Importă textul</button></div></details></div>
   <div class="sectlab">Zona periculoasă</div><div class="card form"><button class="btn danger" id="wipe">Șterge toate datele</button></div>
-  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v5 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
+  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v6 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
   const g=id=>$(id);
   const th=()=>{const c=4*num(g("#tp").value)+4*num(g("#tc").value)+9*num(g("#tf").value);g("#th").textContent=c?`Macro-urile adună ${fk(c)} kcal.`:""};
   ["#tp","#tc","#tf"].forEach(i=>g(i).oninput=th);th();
