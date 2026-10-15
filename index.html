@@ -510,7 +510,7 @@ function renderFoods(){
     <div class="list" id="res"></div>
     ${S.templates.length?`<div class="sectlab">Mese tipice</div><div class="list" id="tpls"></div>`:""}`;
   $("#fabwrap").innerHTML=`<button class="fab" id="fab" aria-label="Aliment nou">${ICON.plus}</button>`;
-  if(!RM()&&$("#fab").animate)$("#fab").animate([{opacity:0,transform:"scale(.85)"},{opacity:1,transform:"none"}],{duration:320,delay:200,easing:"cubic-bezier(.2,.8,.2,1)",fill:"backwards"});
+  if(!RM()&&$("#fab").animate)$("#fab").animate([{opacity:0,transform:"scale(.85)"},{opacity:1,transform:"none"}],{duration:400,delay:0,easing:"cubic-bezier(.2,.8,.2,1)",fill:"backwards"});
   const draw=()=>{const L=sortedFoods(foodQ).sort((a,b)=>a.name.localeCompare(b.name,"ro"));
     $("#res").innerHTML=foodRows(L,S.foods.length?"Nimic găsit.":"<b>Lista e goală</b>Apasă + și copiază valorile de pe etichetă, la 100g.");
     $("#res").querySelectorAll("[data-fid]").forEach(r=>r.onclick=()=>foodForm(S.foods.find(f=>f.id===r.dataset.fid)))};
@@ -571,7 +571,7 @@ function renderSet(){
     <label class="btn sec" for="im">Importă fișier<input id="im" type="file" accept=".json,application/json" hidden></label>
     <details><summary class="hint">Importă prin lipire de text</summary><div class="form" style="margin-top:10px"><textarea id="pj" rows="4" class="field" style="width:100%;background:var(--surface-2);border:0;border-radius:11px;padding:10px" placeholder="Lipește JSON-ul aici"></textarea><button class="btn sec" id="pjb">Importă textul</button></div></details></div>
   <div class="sectlab">Zona periculoasă</div><div class="card form"><button class="btn danger" id="wipe">Șterge toate datele</button></div>
-  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v7 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
+  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v8 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
   const g=id=>$(id);
   const th=()=>{const c=4*num(g("#tp").value)+4*num(g("#tc").value)+9*num(g("#tf").value);g("#th").textContent=c?`Macro-urile adună ${fk(c)} kcal.`:""};
   ["#tp","#tc","#tf"].forEach(i=>g(i).oninput=th);th();
