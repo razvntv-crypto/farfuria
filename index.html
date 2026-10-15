@@ -196,7 +196,22 @@ textarea{resize:vertical}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;opacity:0;transition:.2s;z-index:30;pointer-events:none;max-width:calc(100% - 32px)}
 .toast.on{opacity:1;transform:translate(-50%,0)}
-@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+/* motion */
+.kbar i,.mc .bar i{transition:width .55s cubic-bezier(.2,.8,.2,1)}
+.split i{transition:width .45s cubic-bezier(.2,.8,.2,1)}
+button{transition:transform .12s ease,opacity .12s ease,background-color .15s ease}
+button:active{transform:scale(.97)}
+.tab:active,.item:active,.row:active,.addrow:active,.mname:active{transform:none;opacity:.6}
+.tab svg{transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+.tab[aria-current="page"] svg{transform:translateY(-1px) scale(1.08)}
+@keyframes itemIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes flash{0%{background:color-mix(in srgb,var(--prot) 14%,transparent)}100%{background:transparent}}
+.item.fresh{animation:itemIn .3s ease both,flash 1.4s ease .1s both}
+.sbody.swap{animation:sheetSwap .22s cubic-bezier(.2,.8,.2,1) both}
+@keyframes sheetSwap{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+.sbody.swap.back{animation-name:sheetBack}
+@keyframes sheetBack{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head><body>
 
@@ -285,23 +300,41 @@ function clean(date){const d=S.days[date];if(d&&!dayHasItems(d)&&d.meals.every((
 
 /* ---------- state ---------- */
 let tab="day",cur=iso(new Date()),foodQ="";
-function go(t){tab=t;document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===t?"page":"false"));render();window.scrollTo(0,0)}
+const RM=()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}};
+let navBusy=null;
+/* fade the old view out quickly, swap, then bring the new one in from a direction */
+function transition(fn,from){
+  const el=$("#app");if(RM()||!el.animate){fn();return}
+  if(navBusy){navBusy.cancel&&navBusy.cancel()}
+  const out={tab:[{opacity:1,transform:"none"},{opacity:0,transform:"translateY(4px)"}],left:[{opacity:1,transform:"none"},{opacity:0,transform:"translateX(18px)"}],right:[{opacity:1,transform:"none"},{opacity:0,transform:"translateX(-18px)"}]}[from];
+  const inn={tab:[{opacity:0,transform:"translateY(10px)"},{opacity:1,transform:"none"}],left:[{opacity:0,transform:"translateX(-26px)"},{opacity:1,transform:"none"}],right:[{opacity:0,transform:"translateX(26px)"},{opacity:1,transform:"none"}]}[from];
+  const a=el.animate(out,{duration:90,easing:"ease-in",fill:"forwards"});navBusy=a;
+  a.onfinish=()=>{fn();a.cancel();navBusy=null;el.animate(inn,{duration:240,easing:"cubic-bezier(.2,.8,.2,1)"})};
+  a.oncancel=()=>{if(navBusy===a){navBusy=null}};
+}
+function go(t,anim){const same=t===tab;tab=t;document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===t?"page":"false"));
+  if(anim===false||same){render();return}
+  transition(()=>{render();window.scrollTo(0,0)},"tab")}
+function goDay(d){if(d===cur)return;const dir=d>cur?"right":"left";clean(cur);transition(()=>{cur=d;renderDay()},dir)}
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>go(b.dataset.tab));
 
 function render(){({day:renderDay,foods:renderFoods,hist:renderHist,set:renderSet})[tab]()}
 
 /* ---------- DAY ---------- */
 function pct(a,b){return b>0?Math.min(100,a/b*100):0}
+const barW={};let fresh=new Set();
+function growBars(){const bars=[...document.querySelectorAll("[data-bar]")];if(RM()){bars.forEach(b=>{b.style.width=b.dataset.w+"%";barW[b.dataset.bar]=+b.dataset.w});return}
+  requestAnimationFrame(()=>requestAnimationFrame(()=>bars.forEach(b=>{b.style.width=b.dataset.w+"%";barW[b.dataset.bar]=+b.dataset.w})))}
 function renderDay(){
   const day=getDay(cur),T=dayTotals(day),G=S.settings.targets,left=G.k-T.k;
-  const mrow=(cls,lab,v,g)=>`<div class="mc ${cls}"><div class="lab">${lab}<b>${fm(v)}<span>/${fk(g)}g</span></b></div><div class="bar"><i style="width:${pct(v,g)}%"></i></div></div>`;
+  const mrow=(cls,lab,v,g)=>`<div class="mc ${cls}"><div class="lab">${lab}<b>${fm(v)}<span>/${fk(g)}g</span></b></div><div class="bar"><i data-bar="${cls}" data-w="${pct(v,g)}" style="width:${barW[cls]??0}%"></i></div></div>`;
   let h=`<header class="dayhead"><div class="datebar">
     <button class="iconbtn" id="prev" aria-label="Ziua anterioară">${ICON.l}</button>
     <button class="d" id="today"><b>${niceDate(cur)}</b><small>${subDate(cur)}</small></button>
     <button class="iconbtn" id="next" aria-label="Ziua următoare">${ICON.r}</button></div>
     <div class="summary"><div class="kline"><span class="kbig">${fk(T.k)}</span><span class="kof">/ ${fk(G.k)} kcal</span>
       <span class="kleft">${left>=0?"rămase":"peste"}<b class="${left<0?"over":""}">${fk(Math.abs(left))}</b></span></div>
-      <div class="kbar"><i class="${left<0?"over":""}" style="width:${pct(T.k,G.k)}%"></i></div>
+      <div class="kbar"><i class="${left<0?"over":""}" data-bar="k" data-w="${pct(T.k,G.k)}" style="width:${barW.k??0}%"></i></div>
       <div class="macros">${mrow("p","Proteine",T.p,G.p)}${mrow("c","Carbo",T.c,G.c)}${mrow("f","Grăsimi",T.f,G.f)}${mrow("fb","Fibre",T.fb,G.fb)}</div></div></header>`;
   if(S.demo)h+=`<div class="demo"><span>Vezi date de exemplu ca să arate cum merge.</span><button id="cleardemo">Șterge exemplele</button></div>`;
   h+=`<section class="meals">`;
@@ -315,27 +348,27 @@ function renderDay(){
       h+=`<div class="mstats"><span><i class="dot p"></i><b>${fm(t.p)}</b>g P</span><span><i class="dot c"></i><b>${fm(t.c)}</b>g C</span><span><i class="dot f"></i><b>${fm(t.f)}</b>g G</span><span><i class="dot fb"></i><b>${fm(t.fb)}</b>g Fb</span></div>
       <div class="split"><i class="p" style="width:${t.p*4/tot*100}%"></i><i class="c" style="width:${t.c*4/tot*100}%"></i><i class="f" style="width:${t.f*9/tot*100}%"></i></div><ul class="items">`;
       m.items.forEach((it,ii)=>{const x=itemM(it);
-        h+=`<li><button class="item" data-act="item" data-mi="${mi}" data-ii="${ii}"><span class="n"><b>${esc(it.name)}</b><small class="macroline"><span class="tp">${fm(x.p)}</span> · <span class="tc">${fm(x.c)}</span> · <span class="tf">${fm(x.f)}</span> · <span class="tfb">${fm(x.fb)}</span></small></span><span class="g">${fm(it.g)}g</span><span class="k">${fk(x.k)}</span></button></li>`});
+        h+=`<li><button class="item${fresh.has(it.id)?" fresh":""}" data-act="item" data-mi="${mi}" data-ii="${ii}"><span class="n"><b>${esc(it.name)}</b><small class="macroline"><span class="tp">${fm(x.p)}</span> · <span class="tc">${fm(x.c)}</span> · <span class="tf">${fm(x.f)}</span> · <span class="tfb">${fm(x.fb)}</span></small></span><span class="g">${fm(it.g)}g</span><span class="k">${fk(x.k)}</span></button></li>`});
       h+=`</ul>`}
     h+=`<button class="addrow" data-act="add" data-mi="${mi}">${ICON.plus}Adaugă aliment</button></article>`});
   h+=`</section><div class="daytools">
     <button class="chipbtn" id="addmeal">${ICON.plus}Masă nouă</button>
     ${!dayHasItems(day)&&dayHasItems(S.days[shift(cur,-1)])?`<button class="chipbtn" id="copyprev">${ICON.copy}Copiază ziua de ieri</button>`:""}</div>`;
   $("#app").innerHTML=h;
-  $("#prev").onclick=()=>{clean(cur);cur=shift(cur,-1);renderDay()};
-  $("#next").onclick=()=>{clean(cur);cur=shift(cur,1);renderDay()};
-  $("#today").onclick=()=>{clean(cur);cur=iso(new Date());renderDay()};
+  $("#prev").onclick=()=>goDay(shift(cur,-1));
+  $("#next").onclick=()=>goDay(shift(cur,1));
+  $("#today").onclick=()=>goDay(iso(new Date()));
   if($("#cleardemo"))$("#cleardemo").onclick=()=>{const t=S.settings;S=defaults();S.settings=t;save();renderDay();toast("Exemplele au fost șterse")};
   $("#addmeal").onclick=()=>{const n=day.meals.length+1;day.meals.push({id:uid(),name:"Masa "+n,items:[]});save();renderDay();mealMenu(day.meals.length-1,true)};
   if($("#copyprev"))$("#copyprev").onclick=()=>{const p=S.days[shift(cur,-1)];S.days[cur]={meals:p.meals.map(m=>({id:uid(),name:m.name,items:m.items.map(i=>({...i,id:uid()}))}))};save();renderDay();toast("Am copiat ziua de ieri")};
   $("#app").querySelectorAll("[data-act]").forEach(b=>b.onclick=()=>{const mi=+b.dataset.mi;
     if(b.dataset.act==="add")addSheet(mi);else if(b.dataset.act==="mmenu")mealMenu(mi);else editItem(mi,+b.dataset.ii)});
-  swipe();
+  swipe();growBars();fresh=new Set();
 }
 let swX=null;
 function swipe(){const el=$("#app");el.ontouchstart=e=>{if(tab!=="day")return;const t=e.touches[0];swX=[t.clientX,t.clientY]};
   el.ontouchend=e=>{if(!swX||tab!=="day")return;const t=e.changedTouches[0],dx=t.clientX-swX[0],dy=t.clientY-swX[1];swX=null;
-    if(Math.abs(dx)>70&&Math.abs(dy)<40){clean(cur);cur=shift(cur,dx<0?1:-1);renderDay()}}}
+    if(Math.abs(dx)>70&&Math.abs(dy)<40){goDay(shift(cur,dx<0?1:-1))}}}
 
 /* ---------- sheet ---------- */
 let sheetEl=null,scrimEl=null;
@@ -349,7 +382,9 @@ function openSheet(title,body,onMount){
   scrimEl.onclick=()=>closeSheet();sheetEl.querySelector("[data-close]").onclick=()=>closeSheet();
   onMount&&onMount(sheetEl.querySelector(".sbody"),sheetEl);
 }
-function setSheet(title,body,onMount){if(!sheetEl)return openSheet(title,body,onMount);sheetEl.querySelector("h2").innerHTML=title;const b=sheetEl.querySelector(".sbody");b.innerHTML=body;b.scrollTop=0;onMount&&onMount(b,sheetEl)}
+let sheetBackNext=false;
+function setSheet(title,body,onMount,back){back=back||sheetBackNext;sheetBackNext=false;if(!sheetEl)return openSheet(title,body,onMount);sheetEl.querySelector("h2").innerHTML=title;const b=sheetEl.querySelector(".sbody");b.innerHTML=body;b.scrollTop=0;
+  b.classList.remove("swap","back");void b.offsetWidth;b.classList.add("swap");if(back)b.classList.add("back");onMount&&onMount(b,sheetEl)}
 function closeSheet(now){const s=sheetEl,c=scrimEl;sheetEl=scrimEl=null;if(!s)return;
   if(now){s.remove();c.remove();return}s.classList.remove("on");c.classList.remove("on");setTimeout(()=>{s.remove();c.remove()},250)}
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
@@ -377,7 +412,7 @@ function addSheet(mi,mode){
       else{const qq=q.value.trim().toLowerCase();const L=S.templates.filter(t=>!qq||t.name.toLowerCase().includes(qq));
         res.innerHTML=L.length?L.map(t=>{const s=sumItems(t.items);return`<button class="row" data-tid="${t.id}"><span class="n"><b>${esc(t.name)}</b><span class="macroline"><span class="tp">P ${fm(s.p)}</span> · <span class="tc">C ${fm(s.c)}</span> · <span class="tf">G ${fm(s.f)}</span> · <span class="tfb">Fb ${fm(s.fb)}</span> · ${t.items.length} alim.</span></span><span class="k">${fk(s.k)}<small>kcal</small></span></button>`}).join(""):`<div class="emptybox"><b>Nicio masă tipică</b>La o masă completată, apasă ⋯ și „Salvează ca masă tipică”. Apoi o adaugi aici dintr-o atingere.</div>`;
         res.querySelectorAll("[data-tid]").forEach(r=>r.onclick=()=>{const t=S.templates.find(x=>x.id===r.dataset.tid);
-          meal.items.push(...t.items.map(i=>({...i,id:uid()})));save();closeSheet();renderDay();toast(`Am adăugat „${t.name}”`)})}
+          meal.items.push(...t.items.map(i=>{const nid=uid();fresh.add(nid);return{...i,id:nid}}));save();closeSheet();renderDay();toast(`Am adăugat „${t.name}”`)})}
     };
     b.querySelector("#sf").onclick=()=>{mode="foods";b.querySelector("#sf").setAttribute("aria-pressed","true");b.querySelector("#st").setAttribute("aria-pressed","false");draw()};
     b.querySelector("#st").onclick=()=>{mode="tpl";b.querySelector("#st").setAttribute("aria-pressed","true");b.querySelector("#sf").setAttribute("aria-pressed","false");draw()};
@@ -400,9 +435,9 @@ function gramsStep(mi,fd){
   const meal=getDay(cur).meals[mi];const g=fd.lastG||(fd.portion&&fd.portion.g)||100;
   setSheet(esc(fd.name),gramsUI(fd,g)+`<div class="btnrow"><button class="btn sec" id="bk">Înapoi</button><button class="btn" id="ok">Adaugă la ${esc(meal.name)}</button></div>`,b=>{
     const gi=bindGrams(b,fd);
-    b.querySelector("#bk").onclick=()=>addSheet(mi);
+    b.querySelector("#bk").onclick=()=>{sheetBackNext=true;addSheet(mi)};
     const go=()=>{const gv=num(gi.value);if(gv<=0){toast("Scrie o cantitate");return}
-      meal.items.push({id:uid(),fid:fd.id,name:fd.name,g:gv,k:fd.k,p:fd.p,c:fd.c,f:fd.f,fb:fd.fb||0});fd.used=Date.now();fd.lastG=gv;save();closeSheet();renderDay()};
+      const nid=uid();fresh.add(nid);meal.items.push({id:nid,fid:fd.id,name:fd.name,g:gv,k:fd.k,p:fd.p,c:fd.c,f:fd.f,fb:fd.fb||0});fd.used=Date.now();fd.lastG=gv;save();closeSheet();renderDay()};
     b.querySelector("#ok").onclick=go;gi.onkeydown=e=>{if(e.key==="Enter")go()};
   });
 }
@@ -534,7 +569,7 @@ function renderSet(){
     <label class="btn sec" for="im">Importă fișier<input id="im" type="file" accept=".json,application/json" hidden></label>
     <details><summary class="hint">Importă prin lipire de text</summary><div class="form" style="margin-top:10px"><textarea id="pj" rows="4" class="field" style="width:100%;background:var(--surface-2);border:0;border-radius:11px;padding:10px" placeholder="Lipește JSON-ul aici"></textarea><button class="btn sec" id="pjb">Importă textul</button></div></details></div>
   <div class="sectlab">Zona periculoasă</div><div class="card form"><button class="btn danger" id="wipe">Șterge toate datele</button></div>
-  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v4 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
+  <p class="hint" style="text-align:center;margin:18px 0">Farfuria v5 · ${S.foods.length} alimente · ${Object.keys(S.days).filter(d=>dayHasItems(S.days[d])).length} zile logate</p>`;
   const g=id=>$(id);
   const th=()=>{const c=4*num(g("#tp").value)+4*num(g("#tc").value)+9*num(g("#tf").value);g("#th").textContent=c?`Macro-urile adună ${fk(c)} kcal.`:""};
   ["#tp","#tc","#tf"].forEach(i=>g(i).oninput=th);th();
